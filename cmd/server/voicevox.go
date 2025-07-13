@@ -58,6 +58,8 @@ type VocevoxCore struct {
 	func_wav_free   *windows.LazyProc
 	func_finalize   *windows.LazyProc
 
+	func_make_default_initialize_options *windows.LazyProc
+
 	init_options VoicevoxInitializeOptions
 	tts_options  VoicevoxTtsOptions
 }
@@ -109,17 +111,20 @@ func NewVoiceVox() (*VocevoxCore, error) {
 	ret.init_options.open_jtalk_dict_dir = []byte(get_open_JTalk_dict())
 	ret.init_options.load_all_models = true
 
-	result, _, _ := ret.func_initialize.Call(uintptr(unsafe.Pointer(&ret.init_options.acceleration_mode)))
-	if VoicevoxResultCode(result) != VOICEVOX_RESULT_OK {
-		return nil, errors.New(fmt.Sprintf("voicevox_initialize() error [%v]", VoicevoxResultCode(result)))
-	}
-
 	ret.tts_options = voicevox_make_default_tts_options()
 	return ret, nil
 }
 
 func (v *VocevoxCore) Finalize() {
 	v.func_finalize.Call()
+}
+
+func (v *VocevoxCore) Initialize() error {
+	result, _, _ := v.func_initialize.Call(uintptr(unsafe.Pointer(&v.init_options.acceleration_mode)))
+	if VoicevoxResultCode(result) != VOICEVOX_RESULT_OK {
+		return errors.New(fmt.Sprintf("voicevox_initialize() error [%v]", VoicevoxResultCode(result)))
+	}
+	return nil
 }
 
 func (v *VocevoxCore) Generate(speak_words, wav_file_path string) error {
@@ -152,6 +157,9 @@ func (v *VocevoxCore) load() {
 	v.func_tts = v.dll.NewProc("voicevox_tts")
 	v.func_wav_free = v.dll.NewProc("voicevox_wav_free")
 	v.func_finalize = v.dll.NewProc("voicevox_finalize")
+
+	v.func_make_default_initialize_options = v.dll.NewProc("voicevox_make_default_initialize_options")
+
 }
 
 func (v *VocevoxCore) save(dest_path string, output_wav_ptr *uint8, output_binary_size uint) error {

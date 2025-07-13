@@ -7,13 +7,13 @@ import (
 )
 
 // 音声ファイル名取得
-func get_wave_file_name() string {
+func get_wave_file_name() (string, error) {
 	exePath, err := os.Executable()
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 	exeDir := filepath.Dir(exePath)
-	return filepath.Join(exeDir, "speech.wav")
+	return filepath.Join(exeDir, "speech.wav"), nil
 }
 
 func play_voicevox(v *VocevoxCore, text, dest_path string) error {
@@ -42,6 +42,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	v.Initialize()
 
 	fmt.Print("初期化完了")
 	speak_words := []string{
@@ -49,7 +50,11 @@ func main() {
 		"あかさたなはまやらわ",
 	}
 
-	dest_path := get_wave_file_name()
+	dest_path, err := get_wave_file_name()
+	if err != nil {
+		panic(err)
+	}
+
 	for _, word := range speak_words {
 		talkBack := fmt.Sprintf("「%v」と、聞いてみます", word)
 		fmt.Println(talkBack)
