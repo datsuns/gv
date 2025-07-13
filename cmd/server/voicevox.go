@@ -133,13 +133,15 @@ func (v *VocevoxCore) Generate(speak_words, wav_file_path string) error {
 	if VoicevoxResultCode(result) != VOICEVOX_RESULT_OK {
 		return errors.New(fmt.Sprintf("voicevox_tts() error [%v]", VoicevoxResultCode(result)))
 	}
+	defer func() {
+		fmt.Println("音声データの開放")
+		v.func_wav_free.Call(uintptr(unsafe.Pointer(output_wav_ptr)))
+	}()
 
 	if err := v.save(wav_file_path, output_wav_ptr, output_binary_size); err != nil {
 		return err
 	}
 
-	fmt.Println("音声データの開放")
-	v.func_wav_free.Call(uintptr(unsafe.Pointer(output_wav_ptr)))
 	return nil
 }
 
