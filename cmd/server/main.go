@@ -16,6 +16,26 @@ func GetWaveFileName() string {
 	return filepath.Join(exeDir, "speech.wav")
 }
 
+func play_voicevox(v *VocevoxCore, text, dest_path string) error {
+	if err := v.Generate(text, dest_path); err != nil {
+		return err
+	}
+	if err := PlayWav(dest_path); err != nil {
+		return err
+	}
+	return nil
+}
+
+func issue_ai_prompt(v *VocevoxCore, text, dest_path string) error {
+	generated, err := IssueAiPrompt(text)
+	if err != nil {
+		play_voicevox(v, "失敗しました", dest_path)
+		return err
+	} else {
+		return play_voicevox(v, generated, dest_path)
+	}
+}
+
 func main() {
 
 	v, err := NewVoiceVox()
@@ -29,10 +49,12 @@ func main() {
 		"あかさたなはまやらわ",
 	}
 
+	dest_path := GetWaveFileName()
 	for _, word := range speak_words {
-		dest_path := GetWaveFileName()
-		v.Generate(word, dest_path)
-		PlayWav(dest_path)
+		talkBack := fmt.Sprintf("「%v」と、聞いてみます", word)
+		fmt.Println(talkBack)
+		play_voicevox(v, talkBack, dest_path)
+		issue_ai_prompt(v, word, dest_path)
 	}
 	v.Finalize()
 }

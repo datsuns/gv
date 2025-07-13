@@ -18,6 +18,7 @@ test:
 setup:
 	go get -u golang.org/x/sys/windows
 	go get -u github.com/gopxl/beep/v2
+	go get -u google.golang.org/genai
 
 s: server
 
