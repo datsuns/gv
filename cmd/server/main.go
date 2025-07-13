@@ -7,7 +7,7 @@ import (
 )
 
 // 音声ファイル名取得
-func GetWaveFileName() string {
+func get_wave_file_name() string {
 	exePath, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -49,7 +49,7 @@ func main() {
 		"あかさたなはまやらわ",
 	}
 
-	dest_path := GetWaveFileName()
+	dest_path := get_wave_file_name()
 	for _, word := range speak_words {
 		talkBack := fmt.Sprintf("「%v」と、聞いてみます", word)
 		fmt.Println(talkBack)
