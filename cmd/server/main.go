@@ -23,16 +23,16 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Print("生成する音声の文字列を入力>>")
-	speak_words := ""
-	if len(os.Args) == 1 {
-		fmt.Scan(&speak_words)
-	} else {
-		speak_words = os.Args[1]
-		fmt.Println(speak_words)
+	fmt.Print("初期化完了")
+	speak_words := []string{
+		"今日の天気は晴れです。",
+		"あかさたなはまやらわ",
 	}
 
-	dest_path := GetWaveFileName()
-	v.Generate(speak_words, dest_path)
+	for _, word := range speak_words {
+		dest_path := GetWaveFileName()
+		v.Generate(word, dest_path)
+		PlayWav(dest_path)
+	}
 	v.Finalize()
 }
