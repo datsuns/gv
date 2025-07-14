@@ -2,9 +2,9 @@ DEST_DIR := $(PWD)/_build
 WORK_DIR := $(PWD)/_wk
 
 VOICEVOX_CORE_URL        := https://github.com/VOICEVOX/voicevox_core/releases/download
-VOICEVOX_CORE_VERSION    := 0.15.9
+VOICEVOX_CORE_VERSION    := 0.16.0
 VOICEVOX_CORE_DOWNLOADER := download-windows-x64.exe
-VOICEVOX_CORE_DL_OPT     := --device directml --cpu-arch x64 --os windows
+VOICEVOX_CORE_DL_OPT     := --devices directml
 
 
 default: build
@@ -14,6 +14,7 @@ build:
 	go build -o $(DEST_DIR)/server ./cmd/server
 
 test:
+	go test -v ./cmd/...
 
 setup:
 	go get -u golang.org/x/sys/windows
@@ -29,6 +30,9 @@ c: client
 
 client:
 
+auto:
+	autocmd -v -t makefile -t '.*\.go' -- make test
+
 lib: dl_lib copy_lib
 
 dl_lib:
@@ -37,9 +41,13 @@ dl_lib:
 		&& $(WORK_DIR)/$(VOICEVOX_CORE_DOWNLOADER) $(VOICEVOX_CORE_DL_OPT)
 
 copy_lib:
-	cp -r $(WORK_DIR)/voicevox_core/model                            $(DEST_DIR)/
-	cp -r $(WORK_DIR)/voicevox_core/open_jtalk_dic_utf_8-1.11        $(DEST_DIR)/
-	cp -r $(WORK_DIR)/voicevox_core/voicevox_core.dll                $(DEST_DIR)/
-	cp -r $(WORK_DIR)/voicevox_core/onnxruntime.dll                  $(DEST_DIR)/
+	mv \
+		$(WORK_DIR)/voicevox_core/models \
+		$(WORK_DIR)/voicevox_core/dict \
+		$(WORK_DIR)/voicevox_core/c_api \
+		$(WORK_DIR)/voicevox_core/additional_libraries \
+		$(WORK_DIR)/voicevox_core/onnxruntime \
+		$(DEST_DIR)/
 
-.PHONY: default build test setup s server c client lib dl_lib copy_lib
+
+.PHONY: default build test setup s server c client auto lib dl_lib copy_lib
