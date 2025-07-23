@@ -4,7 +4,7 @@ WORK_DIR := $(PWD)/_wk
 VOICEVOX_CORE_URL        := https://github.com/VOICEVOX/voicevox_core/releases/download
 VOICEVOX_CORE_VERSION    := 0.16.0
 VOICEVOX_CORE_DOWNLOADER := download-windows-x64.exe
-VOICEVOX_CORE_DL_OPT     := --devices directml
+VOICEVOX_CORE_DL_OPT     := --devices cpu
 
 
 default: build
@@ -41,13 +41,7 @@ dl_lib:
 		&& $(WORK_DIR)/$(VOICEVOX_CORE_DOWNLOADER) $(VOICEVOX_CORE_DL_OPT)
 
 copy_lib:
-	mv \
-		$(WORK_DIR)/voicevox_core/models \
-		$(WORK_DIR)/voicevox_core/dict \
-		$(WORK_DIR)/voicevox_core/c_api \
-		$(WORK_DIR)/voicevox_core/additional_libraries \
-		$(WORK_DIR)/voicevox_core/onnxruntime \
-		$(DEST_DIR)/
+	mv $(WORK_DIR)/voicevox_core .
 
 
 .PHONY: default build test setup s server c client auto lib dl_lib copy_lib
