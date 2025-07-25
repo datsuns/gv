@@ -11,7 +11,7 @@ type VocevoxCore struct {
 }
 
 func NewVoiceVox() (*VocevoxCore, error) {
-	return NewVoiceVoxWith(get_dll_dict())
+	return NewVoiceVoxWith("./voicevox_core")
 }
 
 func NewVoiceVoxWith(dllRoot string) (*VocevoxCore, error) {

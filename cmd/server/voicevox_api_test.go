@@ -8,7 +8,7 @@ import (
 
 func TestVoiceVox_init(t *testing.T) {
 	wd, _ := os.Getwd()
-	_, err := NewVocevoxCoreApi(filepath.Join(wd, "..", ".."))
+	_, err := NewVocevoxCoreApi(filepath.Join(wd, "..", "..", "voicevox_core"))
 	if err != nil {
 		t.Errorf("NewVocevoxCoreApi error : %v", err.Error())
 	}

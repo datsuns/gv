@@ -1,0 +1,48 @@
+DEST_DIR := $(PWD)/_build
+WORK_DIR := $(PWD)/_wk
+
+VOICEVOX_CORE_URL        := https://github.com/VOICEVOX/voicevox_core/releases/download
+VOICEVOX_CORE_VERSION    := 0.16.0
+VOICEVOX_CORE_DOWNLOADER := download-linux-x64
+VOICEVOX_CORE_DL_OPT     := --devices cpu
+
+
+default: build
+
+build:
+	go mod tidy
+	go build -o $(DEST_DIR)/server ./cmd/server
+
+test:
+	go test -v ./cmd/...
+
+setup:
+	go get -u golang.org/x/sys/windows
+	go get -u github.com/gopxl/beep/v2
+	go get -u google.golang.org/genai
+
+s: server
+
+server:
+	$(DEST_DIR)/server
+
+c: client
+
+client:
+
+auto:
+	autocmd -v -t makefile -t '.*\.go' -- make test
+
+lib: dl_lib copy_lib
+
+dl_lib:
+	mkdir -p $(WORK_DIR)
+	cd $(WORK_DIR) && wget --no-check-certificate $(VOICEVOX_CORE_URL)/$(VOICEVOX_CORE_VERSION)/$(VOICEVOX_CORE_DOWNLOADER) \
+		&& chmod +x $(WORK_DIR)/$(VOICEVOX_CORE_DOWNLOADER) \
+		&& $(WORK_DIR)/$(VOICEVOX_CORE_DOWNLOADER) $(VOICEVOX_CORE_DL_OPT)
+
+copy_lib:
+	mv $(WORK_DIR)/voicevox_core .
+
+
+.PHONY: default build test setup s server c client auto lib dl_lib copy_lib
