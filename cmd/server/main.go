@@ -42,7 +42,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	v.Initialize()
 
 	fmt.Print("初期化完了")
 	speak_words := []string{

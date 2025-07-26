@@ -8,24 +8,27 @@ import (
 )
 
 type VocevoxCore struct {
+	api *VocevoxCoreApi
 }
 
 func NewVoiceVox() (*VocevoxCore, error) {
 	return NewVoiceVoxWith("./voicevox_core")
 }
 
-func NewVoiceVoxWith(dllRoot string) (*VocevoxCore, error) {
+func NewVoiceVoxWith(lib_root string) (*VocevoxCore, error) {
 	var err error
-	ret := &VocevoxCore{}
+	core := &VocevoxCore{}
 
-	return ret, err
+	core.api, err = NewVocevoxCoreApi(lib_root, 3)
+	if err != nil {
+		return nil, err
+	}
+
+	return core, err
 }
 
 func (v *VocevoxCore) Finalize() {
-}
-
-func (v *VocevoxCore) Initialize() error {
-	return nil
+	v.api.Finalize()
 }
 
 func (v *VocevoxCore) Generate(speak_words, wav_file_path string) error {

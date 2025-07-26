@@ -7,14 +7,15 @@ import (
 )
 
 func TestVoiceVox_init(t *testing.T) {
+	var err error
 	wd, _ := os.Getwd()
-	_, err := NewVocevoxCoreApi(filepath.Join(wd, "..", "..", "voicevox_core"))
+	api, err := NewVocevoxCoreApi(filepath.Join(wd, "..", "..", "voicevox_core"), 3)
 	if err != nil {
 		t.Errorf("NewVocevoxCoreApi error : %v", err.Error())
 	}
 
-	// ロード時間がとても長い
-	//if err := v.Initialize(); err != nil {
-	//	t.Errorf("Initialize error : %v", err.Error())
-	//}
+	err = api.Finalize()
+	if err != nil {
+		t.Errorf("Finalize error : %v", err.Error())
+	}
 }

@@ -13,8 +13,10 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"unsafe"
 )
 
+type VoicevoxStyleId C.VoicevoxStyleId
 type VoicevoxAccelerationMode int32
 type VoicevoxResultCode C.VoicevoxResultCode
 type VoicevoxOnnxruntime struct{}
@@ -63,13 +65,13 @@ type VoicevoxLoadOnnxruntimeOptions struct {
 }
 
 type VocevoxCoreApi struct {
-	init_option VoicevoxInitializeOptions
+	init_option        C.struct_VoicevoxInitializeOptions
+	onnxruntime_option C.struct_VoicevoxLoadOnnxruntimeOptions
+	tts_option         C.struct_VoicevoxTtsOptions
 
-	raw_init_option        C.struct_VoicevoxInitializeOptions
-	raw_onnxruntime_option C.struct_VoicevoxLoadOnnxruntimeOptions
-	runtime                *C.struct_VoicevoxOnnxruntime
-	dict                   *C.OpenJtalkRc
-	synthesizer            *C.VoicevoxSynthesizer
+	runtime     *C.struct_VoicevoxOnnxruntime
+	dict        *C.OpenJtalkRc
+	synthesizer *C.VoicevoxSynthesizer
 }
 
 func (v *VocevoxCoreApi) voicevox_make_default_initialize_options() C.struct_VoicevoxInitializeOptions {
@@ -80,13 +82,17 @@ func (v *VocevoxCoreApi) voicevox_make_default_load_onnxruntime_options() C.stru
 	return C.voicevox_make_default_load_onnxruntime_options()
 }
 
+func (v *VocevoxCoreApi) voicevox_make_default_tts_options() C.struct_VoicevoxTtsOptions {
+	return C.voicevox_make_default_tts_options()
+}
+
 func (v *VocevoxCoreApi) voicevox_error_result_to_message(code C.VoicevoxResultCode) string {
 	return C.GoString(C.voicevox_error_result_to_message(code))
 }
 
 func (v *VocevoxCoreApi) voicevox_onnxruntime_load_once() (*C.struct_VoicevoxOnnxruntime, error) {
 	var runtime *C.struct_VoicevoxOnnxruntime
-	ret := C.voicevox_onnxruntime_load_once(v.raw_onnxruntime_option, &runtime)
+	ret := C.voicevox_onnxruntime_load_once(v.onnxruntime_option, &runtime)
 	if VoicevoxResultCode(ret) != VOICEVOX_RESULT_OK {
 		return nil, errors.New(
 			fmt.Sprintf("voicevox_onnxruntime_load_once() error: %v", v.voicevox_error_result_to_message(ret)),
@@ -108,7 +114,7 @@ func (v *VocevoxCoreApi) voicevox_open_jtalk_rc_new(open_jtalk_dic_dir string) (
 
 func (v *VocevoxCoreApi) voicevox_synthesizer_new() (*C.VoicevoxSynthesizer, error) {
 	var synthesizer *C.VoicevoxSynthesizer
-	ret := C.voicevox_synthesizer_new(v.runtime, v.dict, v.raw_init_option, &synthesizer)
+	ret := C.voicevox_synthesizer_new(v.runtime, v.dict, v.init_option, &synthesizer)
 	if VoicevoxResultCode(ret) != VOICEVOX_RESULT_OK {
 		return nil, errors.New(
 			fmt.Sprintf("voicevox_synthesizer_new() error: %v", v.voicevox_error_result_to_message(ret)),
@@ -146,22 +152,98 @@ func (v *VocevoxCoreApi) voicevox_voice_model_file_delete(model *C.VoicevoxVoice
 	C.voicevox_voice_model_file_delete(model)
 }
 
-func NewVocevoxCoreApi(lib_root string) (*VocevoxCoreApi, error) {
+func (v *VocevoxCoreApi) voicevox_synthesizer_delete() {
+	C.voicevox_synthesizer_delete(v.synthesizer)
+}
+
+func (v *VocevoxCoreApi) voicevox_synthesizer_tts(text string, id VoicevoxStyleId) (int, []byte, error) {
+	var size C.uintptr_t
+	var buf *C.uint8_t
+	v.tts_option = v.voicevox_make_default_tts_options()
+	ret := C.voicevox_synthesizer_tts(v.synthesizer, C.CString(text), C.VoicevoxStyleId(id), v.tts_option, &size, &buf)
+	if VoicevoxResultCode(ret) != VOICEVOX_RESULT_OK {
+		return 0, nil, errors.New(
+			fmt.Sprintf("voicevox_synthesizer_tts() error: %v", v.voicevox_error_result_to_message(ret)),
+		)
+	}
+	return int(C.int(size)), C.GoBytes(unsafe.Pointer(buf), C.int(size)), nil
+}
+
+func (v *VocevoxCoreApi) load(lib_root string) error {
+	var err error
+
+	v.init_option = v.voicevox_make_default_initialize_options()
+	v.init_option.acceleration_mode = C.VoicevoxAccelerationMode(VOICEVOX_ACCELERATION_MODE_CPU)
+	v.onnxruntime_option = v.voicevox_make_default_load_onnxruntime_options()
+	raw_onnxruntime_path := C.GoString(v.onnxruntime_option.filename)
+
+	real_path := filepath.Join(lib_root, "onnxruntime", "lib", raw_onnxruntime_path)
+	v.onnxruntime_option.filename = C.CString(real_path)
+	v.runtime, err = v.voicevox_onnxruntime_load_once()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (v *VocevoxCoreApi) load_dict(lib_root string) error {
+	var err error
+	dict_path := filepath.Join(lib_root, "dict", "open_jtalk_dic_utf_8-1.11")
+	v.dict, err = v.voicevox_open_jtalk_rc_new(dict_path)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (v *VocevoxCoreApi) load_model(lib_root string, style_id VoicevoxStyleId) error {
+	var err error
+
+	model_pattern := filepath.Join(lib_root, "models", "vvms", fmt.Sprintf("%v.vvm", style_id))
+	model_path_list, err := filepath.Glob(model_pattern)
+	if err != nil {
+		return err
+	}
+
+	for _, path := range model_path_list {
+		model, err := v.voicevox_voice_model_file_open(path)
+		if err != nil {
+			return err
+		}
+
+		err = v.voicevox_synthesizer_load_voice_model(model)
+		if err != nil {
+			return err
+		}
+		v.voicevox_voice_model_file_delete(model)
+	}
+	return nil
+}
+
+func (v *VocevoxCoreApi) Finalize() error {
+	v.voicevox_synthesizer_delete()
+	return nil
+}
+
+func (v *VocevoxCoreApi) Build(text string, id VoicevoxStyleId) error {
+	_, _, err := v.voicevox_synthesizer_tts(text, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func NewVocevoxCoreApi(lib_root string, style_id VoicevoxStyleId) (*VocevoxCoreApi, error) {
 	var err error
 
 	v := &VocevoxCoreApi{}
-	v.raw_init_option = v.voicevox_make_default_initialize_options()
-	v.raw_onnxruntime_option = v.voicevox_make_default_load_onnxruntime_options()
-	raw_onnxruntime_path := C.GoString(v.raw_onnxruntime_option.filename)
-	real_path := filepath.Join(lib_root, "onnxruntime", "lib", raw_onnxruntime_path)
-	v.raw_onnxruntime_option.filename = C.CString(real_path)
-	v.runtime, err = v.voicevox_onnxruntime_load_once()
+
+	err = v.load(lib_root)
 	if err != nil {
 		return nil, err
 	}
 
-	dict_path := filepath.Join(lib_root, "dict", "open_jtalk_dic_utf_8-1.11")
-	v.dict, err = v.voicevox_open_jtalk_rc_new(dict_path)
+	err = v.load_dict(lib_root)
 	if err != nil {
 		return nil, err
 	}
@@ -172,52 +254,10 @@ func NewVocevoxCoreApi(lib_root string) (*VocevoxCoreApi, error) {
 	}
 	v.voicevox_open_jtalk_rc_delete()
 
-	model_pattern := filepath.Join(lib_root, "models", "vvms", "*.vvm")
-	model_path_list, err := filepath.Glob(model_pattern)
+	err = v.load_model(lib_root, style_id)
 	if err != nil {
 		return nil, err
 	}
-	for _, path := range model_path_list {
-		model, err := v.voicevox_voice_model_file_open(path)
-		if err != nil {
-			return nil, err
-		}
-
-		err = v.voicevox_synthesizer_load_voice_model(model)
-		if err != nil {
-			return nil, err
-		}
-		v.voicevox_voice_model_file_delete(model)
-	}
 
 	return v, nil
-}
-
-func main_linux_tmp() {
-	// デフォルトのオプションを取得
-	opts := C.voicevox_make_default_load_onnxruntime_options()
-	fmt.Println(C.GoString(opts.filename))
-	fmt.Printf("%T\n", opts)
-
-	// 結果格納用ポインタ
-	var onnxruntime *C.VoicevoxOnnxruntime
-
-	// ONNX Runtime をロード
-	result := C.voicevox_onnxruntime_load_once(opts, &onnxruntime)
-	if result != C.VOICEVOX_RESULT_OK {
-		msg := C.GoString(C.voicevox_error_result_to_message(result))
-		fmt.Println("エラー:", msg)
-		return
-	}
-
-	// 成功時のメッセージ
-	fmt.Println("ONNX Runtime の初期化に成功しました。")
-
-	// 取得して確認（例として）
-	getRuntime := C.voicevox_onnxruntime_get()
-	if getRuntime == onnxruntime {
-		fmt.Println("同じ ONNX Runtime インスタンスです。")
-	} else {
-		fmt.Println("異なる ONNX Runtime インスタンスです。")
-	}
 }
