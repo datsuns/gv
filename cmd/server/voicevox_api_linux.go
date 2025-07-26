@@ -4,71 +4,69 @@
 package main
 
 /*
-#cgo LDFLAGS: -ldl
 #cgo CFLAGS: -I${SRCDIR}/../../voicevox_core/c_api/include
-#include <stdlib.h>
-#include <dlfcn.h>
+#cgo LDFLAGS: -L${SRCDIR}/../../voicevox_core/c_api/lib -lvoicevox_core
 #include "voicevox_core.h"
-
-typedef VoicevoxResultCode (*onnxruntime_load_once_func)(
-  VoicevoxLoadOnnxruntimeOptions options,
-  const VoicevoxOnnxruntime **out_onnxruntime
-);
 */
 import "C"
-
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"unsafe"
 )
 
-type onnxruntimeLoadOnceFunc func(
-	options C.VoicevoxLoadOnnxruntimeOptions,
-	out **C.VoicevoxOnnxruntime,
-) C.VoicevoxResultCode
+type VoicevoxAccelerationMode int32
 
-func main() {
-	// .so のパス
-	libPath := "./voicevox_core/c_api/lib/libvoicevox_core.so"
+const (
+	VOICEVOX_ACCELERATION_MODE_AUTO VoicevoxAccelerationMode = iota
+	VOICEVOX_ACCELERATION_MODE_CPU
+	VOICEVOX_ACCELERATION_MODE_GPU
+)
 
-	// ライブラリ読み込み
-	lib := C.dlopen(C.CString(libPath), C.RTLD_LAZY)
-	if lib == nil {
-		fmt.Println("❌ Failed to load .so")
-		os.Exit(1)
+type VoicevoxInitializeOptions struct {
+	acceleration_mode VoicevoxAccelerationMode
+	cpu_num_threads   uint16
+}
+
+type VocevoxCoreApi struct {
+}
+
+func (v *VocevoxCoreApi) voicevox_make_default_initialize_options() VoicevoxInitializeOptions {
+	opt := C.voicevox_make_default_initialize_options()
+	return VoicevoxInitializeOptions{
+		acceleration_mode: VoicevoxAccelerationMode(opt.acceleration_mode),
+		cpu_num_threads:   uint16(opt.cpu_num_threads),
 	}
-	defer C.dlclose(lib)
+}
 
-	// シンボル取得
-	sym := C.dlsym(lib, C.CString("voicevox_onnxruntime_load_once"))
-	if sym == nil {
-		fmt.Println("❌ Function not found")
-		os.Exit(1)
+func NewVocevoxCoreApi(lib_root string) (*VocevoxCoreApi, error) {
+	ret := &VocevoxCoreApi{}
+	return ret, nil
+}
+
+func main_linux_tmp() {
+	// デフォルトのオプションを取得
+	opts := C.voicevox_make_default_load_onnxruntime_options()
+	fmt.Println(C.GoString(opts.filename))
+	fmt.Printf("%T\n", opts)
+
+	// 結果格納用ポインタ
+	var onnxruntime *C.VoicevoxOnnxruntime
+
+	// ONNX Runtime をロード
+	result := C.voicevox_onnxruntime_load_once(opts, &onnxruntime)
+	if result != C.VOICEVOX_RESULT_OK {
+		msg := C.GoString(C.voicevox_error_result_to_message(result))
+		fmt.Println("エラー:", msg)
+		return
 	}
 
-	// 関数ポインタにキャスト
-	loadOnceFunc := *(*onnxruntimeLoadOnceFunc)(unsafe.Pointer(&sym))
+	// 成功時のメッセージ
+	fmt.Println("ONNX Runtime の初期化に成功しました。")
 
-	// オプション構築
-	onnxPath := filepath.ToSlash("./voicevox_core/onnxruntime/lib/libvoicevox_onnxruntime.so")
-	cPath := C.CString(onnxPath)
-	defer C.free(unsafe.Pointer(cPath))
-
-	options := C.VoicevoxLoadOnnxruntimeOptions{
-		filename: cPath,
+	// 取得して確認（例として）
+	getRuntime := C.voicevox_onnxruntime_get()
+	if getRuntime == onnxruntime {
+		fmt.Println("同じ ONNX Runtime インスタンスです。")
+	} else {
+		fmt.Println("異なる ONNX Runtime インスタンスです。")
 	}
-
-	// 結果出力先
-	var runtimePtr *C.VoicevoxOnnxruntime
-
-	result := loadOnceFunc(options, (**C.VoicevoxOnnxruntime)(unsafe.Pointer(&runtimePtr)))
-	if result != 0 {
-		fmt.Printf("❌ voicevox_onnxruntime_load_once failed: result = %d\n", result)
-		os.Exit(1)
-	}
-
-	fmt.Println("✅ voicevox_onnxruntime_load_once success!")
-	fmt.Printf("Returned runtime ptr = %p\n", runtimePtr)
 }

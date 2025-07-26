@@ -1,0 +1,7 @@
+ランタイム時も渡したパスを適用する
+/*
+#cgo LDFLAGS: -L${SRCDIR}/../../voicevox_core/c_api/lib -L${SRCDIR}/../../voicevox_core/onnxruntime/lib \
+  -Wl,-rpath=${SRCDIR}/../../voicevox_core/c_api/lib \
+  -Wl,-rpath=${SRCDIR}/../../voicevox_core/onnxruntime/lib \
+  -lvoicevox_core
+*/

@@ -3,7 +3,7 @@ WORK_DIR := $(PWD)/_wk
 
 VOICEVOX_CORE_URL        := https://github.com/VOICEVOX/voicevox_core/releases/download
 VOICEVOX_CORE_VERSION    := 0.16.0
-VOICEVOX_CORE_DOWNLOADER := download-windows-x64.exe
+VOICEVOX_CORE_DOWNLOADER := download-linux-x64
 VOICEVOX_CORE_DL_OPT     := --devices cpu
 
 
@@ -14,7 +14,7 @@ build:
 	go build -o $(DEST_DIR)/server ./cmd/server
 
 test:
-	go test -v ./cmd/...
+	LD_LIBRARY_PATH=`pwd`/voicevox_core/c_api/lib:`pwd`/voicevox_core/onnxruntime/lib go test -v ./cmd/...
 
 setup:
 	go get -u golang.org/x/sys/windows
@@ -38,10 +38,13 @@ lib: dl_lib copy_lib
 dl_lib:
 	mkdir -p $(WORK_DIR)
 	cd $(WORK_DIR) && wget --no-check-certificate $(VOICEVOX_CORE_URL)/$(VOICEVOX_CORE_VERSION)/$(VOICEVOX_CORE_DOWNLOADER) \
+		&& chmod +x $(WORK_DIR)/$(VOICEVOX_CORE_DOWNLOADER) \
 		&& $(WORK_DIR)/$(VOICEVOX_CORE_DOWNLOADER) $(VOICEVOX_CORE_DL_OPT)
 
 copy_lib:
 	mv $(WORK_DIR)/voicevox_core .
 
+memo:
+	LD_LIBRARY_PATH=./voicevox_core/c_api/lib:./voicevox_core/onnxruntime/lib
 
-.PHONY: default build test setup s server c client auto lib dl_lib copy_lib
+.PHONY: default build test setup s server c client auto lib dl_lib copy_lib memo
