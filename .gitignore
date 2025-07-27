@@ -1,5 +1,6 @@
 _build/
 _wk/
 voicevox_core/
+voicevox_core.wsl/
 
 key.go

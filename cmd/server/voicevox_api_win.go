@@ -1,6 +1,8 @@
 //go:build windows
 // +build windows
 
+// https://justen.codes/breaking-all-the-rules-using-go-to-call-windows-api-2cbfd8c79724
+
 package main
 
 import (
@@ -16,6 +18,7 @@ const COREDLL_DICT_NAME = "voicevox_core.dll"
 const ONNXRUNTIME_DICT_NAME = "voicevox_onnxruntime.dll"
 const OPENJTALK_DICT_NAME = "open_jtalk_dic_utf_8-1.11"
 
+type VoicevoxStyleId uint32
 type VoicevoxAccelerationMode int32
 type VoicevoxResultCode int32
 type VoicevoxOnnxruntime struct{}
@@ -70,26 +73,6 @@ type VocevoxCoreApi struct {
 	tts_options  VoicevoxTtsOptions
 }
 
-// デフォルトの初期化オプションを生成する
-func voicevox_make_default_initialize_options() VoicevoxInitializeOptions {
-	return VoicevoxInitializeOptions{
-		acceleration_mode: VOICEVOX_ACCELERATION_MODE_AUTO,
-		cpu_num_threads:   0,
-	}
-}
-
-func voicevox_make_default_load_onnxruntime_options(lib_path string) (VoicevoxLoadOnnxruntimeOptions, error) {
-	path := filepath.ToSlash(lib_path)
-	// fmt.Println(path)
-	// filenamePtr, err := windows.BytePtrFromString(path)
-	// if err != nil {
-	// 	return VoicevoxLoadOnnxruntimeOptions{}, errors.New(fmt.Sprintf("voicevox_make_default_load_onnxruntime_options error %v", err.Error()))
-	// }
-	return VoicevoxLoadOnnxruntimeOptions{
-		Filename: []byte(path),
-	}, nil
-}
-
 // デフォルトのテキスト音声合成オプションを生成する
 func voicevox_make_default_tts_options() VoicevoxTtsOptions {
 	return VoicevoxTtsOptions{
@@ -104,8 +87,8 @@ func build_core_dll_path(root string) string {
 
 func build_onnxruntime_path(root string) string {
 	filenameRaw := filepath.Join(root, "onnxruntime", "lib", ONNXRUNTIME_DICT_NAME)
-	// filename := filepath.ToSlash(filenameRaw)
-	filename := filenameRaw
+	filename := filepath.ToSlash(filenameRaw)
+	// filename := filenameRaw
 	return filename
 }
 
@@ -113,7 +96,11 @@ func build_dll_dict_path(root string) string {
 	return filepath.Join(root, "dict", OPENJTALK_DICT_NAME)
 }
 
-func NewVocevoxCoreApi(lib_root string) (*VocevoxCoreApi, error) {
+func (v *VocevoxCoreApi) Finalize() error {
+	return nil
+}
+
+func NewVocevoxCoreApi(lib_root string, style_id VoicevoxStyleId) (*VocevoxCoreApi, error) {
 	var err error
 	ret := &VocevoxCoreApi{}
 
@@ -122,12 +109,13 @@ func NewVocevoxCoreApi(lib_root string) (*VocevoxCoreApi, error) {
 		return nil, err
 	}
 
-	ret.init_options = voicevox_make_default_initialize_options()
-	onnx_path := build_onnxruntime_path(lib_root)
-	ret.onnx_options, err = voicevox_make_default_load_onnxruntime_options(onnx_path)
+	ret.init_options = ret.voicevox_make_default_initialize_options()
+	ret.onnx_options = ret.voicevox_make_default_load_onnxruntime_options()
+	ret.onnx_options.Filename = []byte(build_onnxruntime_path(lib_root))
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(string(ret.onnx_options.Filename))
 	if _, err = ret.voicevox_onnxruntime_load_once(ret.onnx_options); err != nil {
 		return nil, err
 	}
@@ -159,11 +147,24 @@ func (a *VocevoxCoreApi) voicevox_onnxruntime_load_once(opt VoicevoxLoadOnnxrunt
 	var runtime *VoicevoxOnnxruntime
 
 	ret, _, err := a.func_voicevox_onnxruntime_load_once.Call(
-		uintptr(unsafe.Pointer(&opt.Filename)),
+		uintptr(unsafe.Pointer(&opt)),
 		uintptr(unsafe.Pointer(&runtime)),
 	)
 	if VoicevoxResultCode(ret) != VOICEVOX_RESULT_OK {
 		return nil, errors.New(fmt.Sprintf("voicevox_onnxruntime_load_once() error %v", err.Error()))
 	}
 	return runtime, nil
+}
+
+func (a *VocevoxCoreApi) voicevox_make_default_initialize_options() VoicevoxInitializeOptions {
+	return VoicevoxInitializeOptions{
+		acceleration_mode: VOICEVOX_ACCELERATION_MODE_AUTO,
+		cpu_num_threads:   0,
+	}
+}
+
+func (a *VocevoxCoreApi) voicevox_make_default_load_onnxruntime_options() VoicevoxLoadOnnxruntimeOptions {
+	return VoicevoxLoadOnnxruntimeOptions{
+		Filename: []byte{},
+	}
 }

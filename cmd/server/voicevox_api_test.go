@@ -6,10 +6,14 @@ import (
 	"testing"
 )
 
+func util_build_lib_root_path() string {
+	wd, _ := os.Getwd()
+	return filepath.Join(wd, "..", "..", "voicevox_core")
+}
+
 func TestVoiceVox_init(t *testing.T) {
 	var err error
-	wd, _ := os.Getwd()
-	api, err := NewVocevoxCoreApi(filepath.Join(wd, "..", "..", "voicevox_core"), 3)
+	api, err := NewVocevoxCoreApi(util_build_lib_root_path(), 3)
 	if err != nil {
 		t.Errorf("NewVocevoxCoreApi error : %v", err.Error())
 	}
@@ -18,4 +22,7 @@ func TestVoiceVox_init(t *testing.T) {
 	if err != nil {
 		t.Errorf("Finalize error : %v", err.Error())
 	}
+}
+
+func TestVoiceVox_build(t *testing.T) {
 }

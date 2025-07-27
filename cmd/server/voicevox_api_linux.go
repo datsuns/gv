@@ -225,12 +225,12 @@ func (v *VocevoxCoreApi) Finalize() error {
 	return nil
 }
 
-func (v *VocevoxCoreApi) Build(text string, id VoicevoxStyleId) error {
-	_, _, err := v.voicevox_synthesizer_tts(text, id)
+func (v *VocevoxCoreApi) Build(text string, id VoicevoxStyleId) (int, []byte, error) {
+	size, buf, err := v.voicevox_synthesizer_tts(text, id)
 	if err != nil {
-		return err
+		return 0, nil, err
 	}
-	return nil
+	return size, buf, nil
 }
 
 func NewVocevoxCoreApi(lib_root string, style_id VoicevoxStyleId) (*VocevoxCoreApi, error) {
