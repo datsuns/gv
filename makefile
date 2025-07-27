@@ -1,4 +1,7 @@
 default:
+	make -f makefile.wsl test
+
+win:
 	make -f makefile.win test
 
-.PHONY: default
+.PHONY: default win
